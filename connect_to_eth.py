@@ -26,7 +26,7 @@ def connect_with_middleware(contract_json):
 
 	# TODO complete this method
 	# The first section will be the same as "connect_to_eth()" but with a BNB url
-	bnb_url = "https://eth-mainnet.alchemyapi.io/v2/nQJ9TgR6pevl6wI46LXFC6-18lZBQzQ9"  # FILL THIS IN
+	bnb_url = "https://bnb-mainnet.g.alchemy.com/v2/ARsMoB4Uug9pZ_gUAMolg"  # FILL THIS IN
 	w3 = Web3(HTTPProvider(bnb_url))
 	assert w3.is_connected(), f"Failed to connect to provider at {bnb_url}"
 
