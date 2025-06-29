@@ -14,29 +14,29 @@ def pin_to_ipfs(data):
         "Content-Type": "application/json",
         "pinata_api_key": PINATA_API_KEY,
         "pinata_secret_api_key": PINATA_SECRET_API_KEY
-    }
+  }
 
-    payload = {
-        "pinataContent": data
-    }
+  payload = {
+      "pinataContent": data
+  }
 
-    response = requests.post(PINATA_PIN_JSON_URL, headers=headers, json=payload)
-    response.raise_for_status()
+  response = requests.post(PINATA_PIN_JSON_URL, headers=headers, json=payload)
+  response.raise_for_status()
 
-    cid = response.json()["IpfsHash"]
-    return cid
+  cid = response.json()["IpfsHash"]
+  return cid
 
 def get_from_ipfs(cid,content_type="json"):
 	assert isinstance(cid,str), f"get_from_ipfs accepts a cid in the form of a string"
 	#YOUR CODE HERE
 	url = f"{PINATA_GATEWAY}{cid}"
-    response = requests.get(url)
-    response.raise_for_status()
+  response = requests.get(url)
+  response.raise_for_status()
 
-    if content_type == "json":
-        data = response.json()
-    else:
-        raise ValueError("Unsupported content type. Only 'json' is supported.")
+  if content_type == "json":
+      data = response.json()
+  else:
+      raise ValueError("Unsupported content type. Only 'json' is supported.")
 
 	assert isinstance(data,dict), f"get_from_ipfs should return a dict"
 	return data
