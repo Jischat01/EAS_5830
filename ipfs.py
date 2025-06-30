@@ -1,8 +1,8 @@
 import requests
 import json
 
-PINATA_API_KEY = "a27b8cfa61230e73a7c6"
-PINATA_SECRET_API_KEY = "e0c12d7dccc3abe3282a5a9a9c08067089849aab53ff3006b30304b068628cfb"
+API_KEY = "a27b8cfa61230e73a7c6"
+SECRET_API_KEY = "e0c12d7dccc3abe3282a5a9a9c08067089849aab53ff3006b30304b068628cfb"
 
 PINATA_PIN_JSON_URL = "https://api.pinata.cloud/pinning/pinJSONToIPFS"
 PINATA_GATEWAY = "https://gateway.pinata.cloud/ipfs/"
@@ -12,8 +12,8 @@ def pin_to_ipfs(data):
 
     headers = {
         "Content-Type": "application/json",
-        "pinata_api_key": PINATA_API_KEY,
-        "pinata_secret_api_key": PINATA_SECRET_API_KEY
+        "pinata_api_key": API_KEY,
+        "pinata_secret_api_key": SECRET_API_KEY
     }
 
     payload = {
