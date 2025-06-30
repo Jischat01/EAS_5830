@@ -33,10 +33,7 @@ def get_from_ipfs(cid, content_type="json"):
     response = requests.get(url)
     response.raise_for_status()
 
-    if content_type == "json":
-        data = response.json()
-    else:
-        raise ValueError("Unsupported content type. Only 'json' is supported.")
+    data = response.json()
 
     assert isinstance(data, dict), f"get_from_ipfs should return a dict"
     return data
