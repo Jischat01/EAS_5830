@@ -59,9 +59,6 @@ def is_ordered_block(w3, block_num):
 			else:
 				priority_fee = tx.gasPrice - base_fee
 
-		else:
-			priority_fee = tx.gasPrice - base_fee
-
 		priority_fees.append(priority_fee)
 
 	# Now check if the list is sorted in decreasing order
