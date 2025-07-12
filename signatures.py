@@ -34,7 +34,7 @@ def verify(m, public_key, signed_message):
 
     # TODO verify the 'signed_message' is valid given the original message 'm' and the signers 'public_key'
     message = encode_defunct(text=m)  # Encode the message
-    signer = eth_account.Account.sign_message(message, signature=signed_message.signature)  # Verify the message
+    signer = eth_account.Account.recover_message(message, signature=signed_message.signature)  # Verify the message
     valid_signature = signer  # True if message verifies, False if message does not verify
 
     assert isinstance(valid_signature, bool), "verify should return a boolean value"
