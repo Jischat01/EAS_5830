@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 from web3 import Web3
 from web3.middleware import ExtraDataToPOAMiddleware  # Necessary for POA chains
-
+import rlp
+from eth_keys import keys
+from eth_rlp import HashableRLP
 
 def merkle_assignment():
     """
@@ -132,38 +134,35 @@ def sign_challenge(challenge):
     return addr, eth_sig_obj.signature.hex()
 
 
+from eth_account._utils.legacy_transactions import serializable_unsigned_transaction_from_dict
+from eth_account._utils.signing import sign_transaction_hash
+from eth_account._utils.legacy_transactions import Transaction
+
 def send_signed_msg(proof, random_leaf):
-    """
-        Takes a Merkle proof of a leaf, and that leaf (in bytes32 format)
-        builds signs and sends a transaction claiming that leaf (prime)
-        on the contract
-    """
     chain = 'bsc'
 
     acct = get_account()
     address, abi = get_contract_info(chain)
     w3 = connect_to(chain)
-
-    # TODO YOUR CODE HERE
     contract = w3.eth.contract(address=address, abi=abi)
 
-    # Hash the leaf (prime in bytes32) using keccak256 to match Merkle tree format
     leaf_bytes32 = Web3.solidity_keccak(['bytes'], [random_leaf])
 
-    # Prepare the transaction
     txn = contract.functions.submit(proof, leaf_bytes32).build_transaction({
         'from': acct.address,
         'nonce': w3.eth.get_transaction_count(acct.address),
         'gas': 500000,
-        'gasPrice': w3.eth.gas_price
+        'gasPrice': w3.eth.gas_price,
+        'chainId': 97  # BSC Testnet
     })
 
-    # Sign and send transaction
-    signed_txn = w3.eth.account.sign_transaction(txn, private_key=acct.key)
-    tx_hash = w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-    tx_hash = w3.to_hex(tx_has
+    signed_txn = eth_account.Account.sign_transaction(txn, acct.key)
 
-    return tx_hash
+    raw_tx = signed_txn.raw_transaction
+
+    tx_hash = w3.eth.send_raw_transaction(raw_tx)
+
+    return w3.to_hex(tx_hash)
 
 
 # Helper functions that do not need to be modified
