@@ -49,18 +49,18 @@ contract Destination is AccessControl {
 
 	function createToken(address _underlying_token, string memory name, string memory symbol ) public onlyRole(CREATOR_ROLE) returns(address) {
 
-    require(underlying_tokens[_underlying_token] == address(0), "Token already registered");
+    require(_underlying_token != address(0), "Invalid token");
+    require(wrapped_tokens[_underlying_token] == address(0), "Token already registered");
 
     BridgeToken newToken = new BridgeToken(_underlying_token, name, symbol, address(this));
     address wrapped_token = address(newToken);
 
-    underlying_tokens[_underlying_token] = wrapped_token;
-    wrapped_tokens[wrapped_token] = _underlying_token;
+    wrapped_tokens[_underlying_token] = wrapped_token;
+    underlying_tokens[wrapped_token] = _underlying_token;
+
     tokens.push(wrapped_token);
-
-    // Emit AFTER assigning the wrapped token to the mappings
     emit Creation(_underlying_token, wrapped_token);
-
+    
     return wrapped_token;
 
 	}
