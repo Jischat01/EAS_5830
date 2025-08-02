@@ -51,9 +51,7 @@ def scan_blocks(chain, start_block, end_block, contract_address, eventfile='depo
         print(f"Scanning blocks {start_block} - {end_block} on {chain}")
 
     if end_block - start_block < 30:
-        event_filter = contract.events.Deposit.createFilter(fromBlock=start_block, toBlock=end_block, argument_filters=arg_filter)
-        events = event_filter.get_all_entries()
-        # print( f"Got {len(events)} entries for block {block_num}" )
+        events = contract.events.Deposit().get_logs(fromBlock=start_block, toBlock=end_block, argument_filters=arg_filter)
         # TODO YOUR CODE HERE
         log_entries = []
         for evt in events:
@@ -73,9 +71,7 @@ def scan_blocks(chain, start_block, end_block, contract_address, eventfile='depo
 
     else:
         for block_num in range(start_block, end_block + 1):
-            event_filter = contract.events.Deposit.createFilter(fromBlock=block_num, toBlock=block_num, argument_filters=arg_filter)
-            events = event_filter.get_all_entries()
-            # print( f"Got {len(events)} entries for block {block_num}" )
+            events = contract.events.Deposit().get_logs(fromBlock=block_num, toBlock=block_num, argument_filters=arg_filter)
             # TODO YOUR CODE HERE
             log_entries = []
             for evt in events:
