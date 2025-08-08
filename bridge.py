@@ -45,12 +45,11 @@ def send_tx(w3: Web3, acct: Account, fn, gas_limit: int):
         "chainId": chain_id
     })
     signed = acct.sign_transaction(tx)
-    if hasattr(signed, "rawTransaction"):
-        raw = signed.rawTransaction
-    elif hasattr(signed, "raw_transaction"):
-        raw = signed.raw_transaction
-    else:
-        raw = signed["rawTransaction"] if "rawTransaction" in signed else signed["raw_transaction"]
+    # extract raw bytes
+    raw = getattr(signed, "rawTransaction", None) \
+       or getattr(signed, "raw_transaction", None) \
+       or signed.get("rawTransaction") \
+       or signed.get("raw_transaction")
     txh = w3.eth.send_raw_transaction(raw)
     return w3.eth.wait_for_transaction_receipt(txh)
 
@@ -76,11 +75,12 @@ def scan_blocks(chain: str, contract_info_path: str = CONTRACT_INFO):
     from_c = w3_from.eth.contract(address=from_info["address"], abi=from_info["abi"])
     to_c   = w3_to  .eth.contract(address=to_info  ["address"], abi=to_info  ["abi"])
 
+    # build topic0 as raw bytes
     evt_abi = next(e for e in from_info["abi"]
                    if e.get("type")=="event" and e.get("name")==event_name)
     types   = [inp["type"] for inp in evt_abi["inputs"]]
     sig     = f"{event_name}({','.join(types)})"
-    topic0  = Web3.toHex(Web3.keccak(text=sig))
+    topic0  = Web3.keccak(text=sig)
 
     latest = w3_from.eth.block_number
     start  = max(0, latest - BLOCK_WINDOW)
@@ -97,14 +97,10 @@ def scan_blocks(chain: str, contract_info_path: str = CONTRACT_INFO):
         args    = evt["args"]
 
         if event_name == "Deposit":
-            token = args["token"]
-            rec   = args["recipient"]
-            amt   = args["amount"]
+            token, rec, amt = args["token"], args["recipient"], args["amount"]
             print(f"▶️ Deposit→wrap({token}, {rec}, {amt})")
         else:
-            token = args["underlying_token"]
-            rec   = args["to"]
-            amt   = args["amount"]
+            token, rec, amt = args["underlying_token"], args["to"], args["amount"]
             print(f"▶️ Unwrap→withdraw({token}, {rec}, {amt})")
 
         fn      = action_fn(to_c, token, rec, amt)
