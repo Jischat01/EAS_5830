@@ -45,12 +45,13 @@ def send_tx(w3: Web3, acct: Account, fn, gas_limit: int):
         "chainId": chain_id
     })
     signed = acct.sign_transaction(tx)
-    raw_bytes = getattr(signed, "rawTransaction", None) \
-             or getattr(signed, "raw_transaction", None) \
-             or signed.get("rawTransaction") \
-             or signed.get("raw_transaction")
-    raw_hex = Web3.toHex(raw_bytes)
-    txh = w3.eth.send_raw_transaction(raw_hex)
+    if hasattr(signed, "rawTransaction"):
+        raw = signed.rawTransaction
+    elif hasattr(signed, "raw_transaction"):
+        raw = signed.raw_transaction
+    else:
+        raw = signed["rawTransaction"] if "rawTransaction" in signed else signed["raw_transaction"]
+    txh = w3.eth.send_raw_transaction(raw)
     return w3.eth.wait_for_transaction_receipt(txh)
 
 def scan_blocks(chain: str, contract_info_path: str = CONTRACT_INFO):
@@ -79,7 +80,7 @@ def scan_blocks(chain: str, contract_info_path: str = CONTRACT_INFO):
                    if e.get("type")=="event" and e.get("name")==event_name)
     types   = [inp["type"] for inp in evt_abi["inputs"]]
     sig     = f"{event_name}({','.join(types)})"
-    topic0  = Web3.keccak(text=sig).hex()
+    topic0  = Web3.toHex(Web3.keccak(text=sig))
 
     latest = w3_from.eth.block_number
     start  = max(0, latest - BLOCK_WINDOW)
