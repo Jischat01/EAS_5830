@@ -45,7 +45,6 @@ def send_tx(w3: Web3, acct: Account, fn, gas_limit: int):
         "chainId": chain_id
     })
     signed = acct.sign_transaction(tx)
-    # extract raw bytes
     raw = getattr(signed, "rawTransaction", None) \
        or getattr(signed, "raw_transaction", None) \
        or signed.get("rawTransaction") \
@@ -60,22 +59,22 @@ def scan_blocks(chain: str, contract_info_path: str = CONTRACT_INFO):
     warden = load_warden(SECRET_KEY)
 
     if chain == "source":
-        w3_from, w3_to   = w3_src, w3_dst
+        w3_from, w3_to    = w3_src, w3_dst
         from_info, to_info = src_info, dst_info
-        event_name       = "Deposit"
-        action_fn        = lambda c,t,r,a: c.functions.wrap(t, r, a)
-        gas_limit        = GAS_BSC
+        event_name        = "Deposit"
+        action_fn         = lambda c,t,r,a: c.functions.wrap(t, r, a)
+        gas_limit         = GAS_BSC
     else:
-        w3_from, w3_to   = w3_dst, w3_src
+        w3_from, w3_to    = w3_dst, w3_src
         from_info, to_info = dst_info, src_info
-        event_name       = "Unwrap"
-        action_fn        = lambda c,t,r,a: c.functions.withdraw(t, r, a)
-        gas_limit        = GAS_AVAX
+        event_name        = "Unwrap"
+        action_fn         = lambda c,t,r,a: c.functions.withdraw(t, r, a)
+        gas_limit         = GAS_AVAX
 
     from_c = w3_from.eth.contract(address=from_info["address"], abi=from_info["abi"])
     to_c   = w3_to  .eth.contract(address=to_info  ["address"], abi=to_info  ["abi"])
 
-    # build topic0 as raw bytes
+    # build topic0
     evt_abi = next(e for e in from_info["abi"]
                    if e.get("type")=="event" and e.get("name")==event_name)
     types   = [inp["type"] for inp in evt_abi["inputs"]]
@@ -93,7 +92,7 @@ def scan_blocks(chain: str, contract_info_path: str = CONTRACT_INFO):
 
     for log in logs:
         handler = getattr(from_c.events, event_name)
-        evt     = handler().processLog(log)
+        evt     = handler().process_log(log)    # <-- use snake_case here
         args    = evt["args"]
 
         if event_name == "Deposit":
