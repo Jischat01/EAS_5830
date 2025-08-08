@@ -52,7 +52,7 @@ def send_tx(w3: Web3, acct: Account, fn, gas_limit: int):
     txh = w3.eth.send_raw_transaction(raw)
     return w3.eth.wait_for_transaction_receipt(txh)
 
-def fetch_logs_safe(w3: Web3, address: str, topic0: bytes, start: int, end: int):
+def fetch_logs_safe(w3: Web3, address: str, topic0: str, start: int, end: int):
     try:
         return w3.eth.get_logs({
             "address":   address,
@@ -97,10 +97,11 @@ def scan_blocks(chain: str, contract_info_path: str = CONTRACT_INFO):
     from_c = w3_from.eth.contract(address=from_info["address"], abi=from_info["abi"])
     to_c   = w3_to  .eth.contract(address=to_info  ["address"], abi=to_info  ["abi"])
 
-    evt_abi = next(e for e in from_info["abi"] if e.get("type")=="event" and e.get("name")==event_name)
+    evt_abi = next(e for e in from_info["abi"]
+                   if e.get("type")=="event" and e.get("name")==event_name)
     types   = [inp["type"] for inp in evt_abi["inputs"]]
     sig     = f"{event_name}({','.join(types)})"
-    topic0  = Web3.keccak(text=sig)
+    topic0  = "0x" + Web3.keccak(text=sig).hex()
 
     latest = w3_from.eth.block_number
     start  = max(0, latest - BLOCK_WINDOW)
@@ -116,11 +117,10 @@ def scan_blocks(chain: str, contract_info_path: str = CONTRACT_INFO):
         else:
             token, rec, amt = args["underlying_token"], args["to"], args["amount"]
 
-        print(f"▶️ {event_name}→{action_fn.__name__}({token}, {rec}, {amt})")
         fn      = action_fn(to_c, token, rec, amt)
         receipt = send_tx(w3_to, warden, fn, gas_limit)
         status  = "✅" if receipt.status == 1 else "❌"
-        print(f"   {status} tx hash: {receipt.transactionHash.hex()}")
+        print(f"▶️ {event_name} → {fn.fn_name}({token}, {rec}, {amt}) {status}: {receipt.transactionHash.hex()}")
 
 if __name__ == "__main__":
     if len(sys.argv)!=2 or sys.argv[1] not in ("source","destination"):
