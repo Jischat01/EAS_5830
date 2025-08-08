@@ -7,11 +7,10 @@ from web3.middleware import ExtraDataToPOAMiddleware
 from eth_account import Account
 
 # --- Config ---
-CONTRACT_INFO = "contract_info.json"
-SECRET_KEY    = "secret_key.txt"
 BLOCK_WINDOW  = 5    # look back this many blocks
 GAS_AVAX      = 300_000
 GAS_BSC       = 500_000
+SECRET_KEY    = "secret_key.txt"
 
 def connect_to(chain: str) -> Web3:
     if chain == "source":
@@ -21,7 +20,6 @@ def connect_to(chain: str) -> Web3:
     else:
         raise ValueError(f"Unknown chain '{chain}'")
     w3 = Web3(HTTPProvider(url))
-    # inject POA compatibility for BSC / Avalanche
     w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
     return w3
 
@@ -33,13 +31,12 @@ def load_contract_info(path: str):
 def load_warden():
     with open(SECRET_KEY) as f:
         pk = f.read().strip()
-    acct = Account.from_key(pk)
-    return acct
+    return Account.from_key(pk)
 
 def send_tx(w3: Web3, acct: Account, fn, gas_limit: int):
-    nonce   = w3.eth.get_transaction_count(acct.address, "pending")
-    gasprice= w3.eth.gas_price
-    chain_id= w3.eth.chain_id
+    nonce    = w3.eth.get_transaction_count(acct.address, "pending")
+    gasprice = w3.eth.gas_price
+    chain_id = w3.eth.chain_id
     tx = fn.build_transaction({
         "from": acct.address,
         "nonce": nonce,
@@ -48,43 +45,42 @@ def send_tx(w3: Web3, acct: Account, fn, gas_limit: int):
         "chainId": chain_id
     })
     signed = acct.sign_transaction(tx)
-    # rawTransaction vs raw_transaction
-    raw = getattr(signed, "rawTransaction", None) or getattr(signed, "raw_transaction", None) or signed["rawTransaction"]
+    raw = getattr(signed, "rawTransaction", None) \
+        or getattr(signed, "raw_transaction", None) \
+        or signed.get("rawTransaction") \
+        or signed.get("raw_transaction")
     txh = w3.eth.send_raw_transaction(raw)
     return w3.eth.wait_for_transaction_receipt(txh)
 
-def scan_blocks(direction: str):
-    src_info, dst_info = load_contract_info(CONTRACT_INFO)
-    w3_src  = connect_to("source")
-    w3_dst  = connect_to("destination")
-    warden  = load_warden()
+def scan_blocks(chain: str, contract_info_path: str = "contract_info.json"):
+    src_info, dst_info = load_contract_info(contract_info_path)
+    w3_src = connect_to("source")
+    w3_dst = connect_to("destination")
+    warden = load_warden()
 
-    # choose direction
-    if direction == "source":
+    if chain == "source":
         w3_from, w3_to   = w3_src, w3_dst
         from_info, to_info = src_info, dst_info
         event_name       = "Deposit"
-        action_fn        = lambda to_c, tok, rec, amt: to_c.functions.wrap(tok, rec, amt)
+        action_fn        = lambda c,t,r,a: c.functions.wrap(t,r,a)
         gas_limit        = GAS_BSC
     else:
         w3_from, w3_to   = w3_dst, w3_src
         from_info, to_info = dst_info, src_info
         event_name       = "Unwrap"
-        action_fn        = lambda to_c, tok, rec, amt: to_c.functions.withdraw(tok, rec, amt)
+        action_fn        = lambda c,t,r,a: c.functions.withdraw(t,r,a)
         gas_limit        = GAS_AVAX
 
-    # prepare contract objects
-    from_contract = w3_from.eth.contract(address=from_info["address"], abi=from_info["abi"])
-    to_contract   = w3_to  .eth.contract(address=to_info  ["address"], abi=to_info  ["abi"])
+    from_c = w3_from.eth.contract(address=from_info["address"], abi=from_info["abi"])
+    to_c   = w3_to  .eth.contract(address=to_info  ["address"], abi=to_info  ["abi"])
 
-    # build topic0
-    event_abi = next(e for e in from_info["abi"]
+    # Build topic0
+    evt_abi = next(e for e in from_info["abi"]
                      if e.get("type")=="event" and e.get("name")==event_name)
-    types     = [inp["type"] for inp in event_abi["inputs"]]
-    signature = f"{event_name}({','.join(types)})"
-    topic0    = Web3.keccak(text=signature).hex()
+    types   = [inp["type"] for inp in evt_abi["inputs"]]
+    sig     = f"{event_name}({','.join(types)})"
+    topic0  = Web3.keccak(text=sig).hex()
 
-    # fetch logs over last BLOCK_WINDOW blocks
     latest = w3_from.eth.block_number
     start  = max(0, latest - BLOCK_WINDOW)
     logs   = w3_from.eth.get_logs({
@@ -94,26 +90,25 @@ def scan_blocks(direction: str):
         "topics":    [topic0]
     })
 
-    # process each log
     for log in logs:
-        handler = getattr(from_contract.events, event_name)
+        handler = getattr(from_c.events, event_name)
         evt     = handler().processLog(log)
         args    = evt["args"]
 
         if event_name == "Deposit":
-            token, recipient, amount = args["token"], args["recipient"], args["amount"]
-            print(f"▶️ Deposit→wrap({token}, {recipient}, {amount})")
+            token, rec, amt = args["token"], args["recipient"], args["amount"]
+            print(f"▶️ Deposit→wrap({token}, {rec}, {amt})")
         else:
-            token, recipient, amount = args["underlying_token"], args["to"], args["amount"]
-            print(f"▶️ Unwrap→withdraw({token}, {recipient}, {amount})")
+            token, rec, amt = args["underlying_token"], args["to"], args["amount"]
+            print(f"▶️ Unwrap→withdraw({token}, {rec}, {amt})")
 
-        fn       = action_fn(to_contract, token, recipient, amount)
-        receipt  = send_tx(w3_to, warden, fn, gas_limit)
-        status   = "✅" if receipt.status == 1 else "❌"
-        print(f"   {status} tx hash: {receipt.transactionHash.hex()}")
+        fn      = action_fn(to_c, token, rec, amt)
+        receipt = send_tx(w3_to, warden, fn, gas_limit)
+        status  = "✅" if receipt.status==1 else "❌"
+        print(f"   {status} tx {receipt.transactionHash.hex()}")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or sys.argv[1] not in ("source","destination"):
+    if len(sys.argv)!=2 or sys.argv[1] not in ("source","destination"):
         print("Usage: python bridge.py [source|destination]")
         sys.exit(1)
-    scan_blocks(sys.argv[1])
+    scan_blocks(sys.argv[1], "contract_info.json")
